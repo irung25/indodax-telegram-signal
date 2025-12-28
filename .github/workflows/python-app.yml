@@ -1,5 +1,3 @@
-name: Telegram Signal Bot Test
-
 on:
   workflow_dispatch:
   push:
