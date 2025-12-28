@@ -1,3 +1,55 @@
+import requests
+import pandas as pd
+from ta.momentum import RSIIndicator
+import os
+
+DATA_FILE = "data.csv"
+
+# =========================
+# AMBIL DATA TRADE
+# =========================
+def get_trades(pair):
+    url = f"https://indodax.com/api/trades/{pair}"
+    return requests.get(url).json()
+
+# =========================
+# BANGUN CANDLE DARI TRADE
+# =========================
+def build_candles(trades, timeframe="4h"):
+    df = pd.DataFrame(trades)
+
+    df["date"] = pd.to_datetime(df["date"], unit="s")
+    df["price"] = df["price"].astype(float)
+    df["amount"] = df["amount"].astype(float)
+
+    df.set_index("date", inplace=True)
+
+    ohlc = df["price"].resample(timeframe).ohlc()
+    volume = df["amount"].resample(timeframe).sum()
+
+    candles = ohlc.copy()
+    candles["volume"] = volume
+    candles.dropna(inplace=True)
+
+    return candles.reset_index()
+
+# =========================
+# LOAD DATA HISTORY
+# =========================
+def load_history():
+    if os.path.exists(DATA_FILE):
+        return pd.read_csv(DATA_FILE, parse_dates=["date"])
+    return pd.DataFrame()
+
+# =========================
+# SIMPAN DATA HISTORY
+# =========================
+def save_history(df):
+    df.to_csv(DATA_FILE, index=False)
+
+# =========================
+# MAIN PROGRAM
+# =========================
 if __name__ == "__main__":
     pair = "btcidr"
 
@@ -5,7 +57,8 @@ if __name__ == "__main__":
     trades = get_trades(pair)
     new_candles = build_candles(trades)
 
-    df = pd.concat([history, new_candles]).drop_duplicates(subset=["date"])
+    df = pd.concat([history, new_candles])
+    df = df.drop_duplicates(subset=["date"])
     df = df.sort_values("date")
 
     if len(df) < 20:
