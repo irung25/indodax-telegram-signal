@@ -1,44 +1,30 @@
 import requests
 import pandas as pd
 
-def get_candles(pair, timeframe):
-    url = f"https://indodax.com/api/chart/{pair}/{timeframe}"
-    response = requests.get(url)
-    raw = response.json()
+def get_trades(pair):
+    url = f"https://indodax.com/api/trades/{pair}"
+    r = requests.get(url)
+    return r.json()
 
-    # DEBUG: tampilkan struktur raw (sementara)
-    print("RAW RESPONSE TYPE:", type(raw))
+def build_candles(trades, timeframe="4H"):
+    df = pd.DataFrame(trades)
 
-    # CASE 1: langsung list
-    if isinstance(raw, list):
-        candles = raw
+    df["date"] = pd.to_datetime(df["date"], unit="s")
+    df["price"] = df["price"].astype(float)
+    df["amount"] = df["amount"].astype(float)
 
-    # CASE 2: dict berisi 'data'
-    elif isinstance(raw, dict) and "data" in raw:
-        candles = raw["data"]
+    df.set_index("date", inplace=True)
 
-    # CASE 3: dict berisi key lain (fallback)
-    elif isinstance(raw, dict):
-        # ambil value pertama yang berupa list
-        candles = next(
-            (v for v in raw.values() if isinstance(v, list)),
-            None
-        )
-        if candles is None:
-            raise ValueError("Format API tidak dikenali")
+    ohlc = df["price"].resample(timeframe).ohlc()
+    volume = df["amount"].resample(timeframe).sum()
 
-    else:
-        raise ValueError("Format API tidak dikenali")
+    candles = ohlc.copy()
+    candles["volume"] = volume
 
-    df = pd.DataFrame(
-        candles,
-        columns=["timestamp", "open", "high", "low", "close", "volume"]
-    )
-
-    df["timestamp"] = pd.to_datetime(df["timestamp"], unit="s")
-    return df
-
+    candles.dropna(inplace=True)
+    return candles.reset_index()
 
 if __name__ == "__main__":
-    df = get_candles("btcidr", "4h")
-    print(df.tail())
+    trades = get_trades("btcidr")
+    candles_4h = build_candles(trades, "4H")
+    print(candles_4h.tail())
