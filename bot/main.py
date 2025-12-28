@@ -7,8 +7,8 @@ PAIR = "btc_idr"
 TIMEFRAME = "4h"
 LIMIT = 200
 
-def fetch_candles(pair):
-    url = f"https://indodax.com/api/chart/{pair}/{TIMEFRAME}"
+def fetch_candles():
+    url = f"https://indodax.com/api/chart/{PAIR}/{TIMEFRAME}"
     r = requests.get(url)
     data = r.json()["data"][-LIMIT:]
 
@@ -29,14 +29,14 @@ def indicators(df):
     return df
 
 if __name__ == "__main__":
-    df = fetch_candles(PAIR)
+    df = fetch_candles()
     df = indicators(df)
     last = df.iloc[-1]
 
-    print("====== INDODAX DATA ======")
+    print("===== INDODAX INDICATOR =====")
     print("PAIR:", PAIR.upper())
     print("CLOSE:", last["close"])
-    print("EMA50:", round(last["ema50"],2))
-    print("EMA200:", round(last["ema200"],2))
-    print("RSI:", round(last["rsi"],2))
-    print("==========================")
+    print("EMA50:", round(last["ema50"], 2))
+    print("EMA200:", round(last["ema200"], 2))
+    print("RSI:", round(last["rsi"], 2))
+    print("============================")
