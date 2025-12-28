@@ -54,14 +54,25 @@ if __name__ == "__main__":
     df["rsi"] = RSIIndicator(df["close"], window=14).rsi()
 
     last = df.iloc[-1]
+df["vol_ma20"] = df["volume"].rolling(20).mean()
+volume_ok = last["volume"] > last["vol_ma20"]
 
     print("EMA50 :", last["ema50"])
     print("EMA200:", last["ema200"])
     print("RSI14 :", last["rsi"])
 
-    if last["ema50"] > last["ema200"] and 55 <= last["rsi"] <= 68:
-        print("SIGNAL CANDIDATE: LANJUT KE FILTER LAIN")
-    else:
-        print("NO TRADE: Momentum / Trend belum valid")
+    trend_ok = last["ema50"] > last["ema200"]
+rsi_ok = 55 <= last["rsi"] <= 68
+volume_ok = last["volume"] > last["vol_ma20"]
+
+print("TREND OK :", trend_ok)
+print("RSI OK   :", rsi_ok)
+print("VOLUME OK:", volume_ok)
+
+if trend_ok and rsi_ok and volume_ok:
+    print("SIGNAL CANDIDATE: MOMENTUM + VOLUME VALID")
+else:
+    print("NO TRADE: Trend / RSI / Volume belum valid")
+
 
     save_history(df)
