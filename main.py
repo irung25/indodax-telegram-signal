@@ -24,7 +24,7 @@ def get_trades(pair):
 
 def build_candles(trades, timeframe="4h"):
     df = pd.DataFrame(trades)
-    df["date"] = pd.to_datetime(df["date"], unit="s")
+    df["date"] = pd.to_datetime(pd.to_numeric(df["date"]), unit="s")
     df["price"] = df["price"].astype(float)
     df["amount"] = df["amount"].astype(float)
     df.set_index("date", inplace=True)
