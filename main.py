@@ -7,5 +7,8 @@ def get_ticker(pair):
     return data["ticker"]["last"]
 
 if __name__ == "__main__":
-    price = get_ticker("btcidr")
-    print(f"Harga BTC/IDR saat ini: {price}")
+    pairs = ["btcidr", "ethidr", "bnbidr"]
+
+    for pair in pairs:
+        price = get_ticker(pair)
+        print(f"Harga {pair.upper()} : {price}")
