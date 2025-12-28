@@ -2,6 +2,9 @@ import requests
 import pandas as pd
 import numpy as np
 from ta.momentum import RSIIndicator
+import os
+
+DATA_FILE = "data.csv"
 
 def get_trades(pair):
     url = f"https://indodax.com/api/trades/{pair}"
@@ -21,22 +24,34 @@ def build_candles(trades, timeframe="4h"):
     candles = ohlc.copy()
     candles["volume"] = volume
     candles.dropna(inplace=True)
-    return candles
+    return candles.reset_index()
 
-def calculate_ema(df, period):
-    return df["close"].ewm(span=period, adjust=False).mean()
+def load_history():
+    if os.path.exists(DATA_FILE):
+        return pd.read_csv(DATA_FILE, parse_dates=["date"])
+    return pd.DataFrame()
 
-def calculate_rsi(df, period=14):
-    rsi = RSIIndicator(close=df["close"], window=period)
-    return rsi.rsi()
+def save_history(df):
+    df.to_csv(DATA_FILE, index=False)
 
 if __name__ == "__main__":
-    trades = get_trades("btcidr")
-    df = build_candles(trades)
+    pair = "btcidr"
 
-    df["ema50"] = calculate_ema(df, 50)
-    df["ema200"] = calculate_ema(df, 200)
-    df["rsi"] = calculate_rsi(df)
+    history = load_history()
+    trades = get_trades(pair)
+    new_candles = build_candles(trades)
+
+    df = pd.concat([history, new_candles]).drop_duplicates(subset=["date"])
+    df = df.sort_values("date")
+
+    if len(df) < 20:
+        save_history(df)
+        print("NO TRADE: Data candle belum cukup")
+        exit()
+
+    df["ema50"] = df["close"].ewm(span=50).mean()
+    df["ema200"] = df["close"].ewm(span=200).mean()
+    df["rsi"] = RSIIndicator(df["close"], window=14).rsi()
 
     last = df.iloc[-1]
 
@@ -44,10 +59,9 @@ if __name__ == "__main__":
     print("EMA200:", last["ema200"])
     print("RSI14 :", last["rsi"])
 
-    trend_ok = last["ema50"] > last["ema200"]
-    rsi_ok = 55 <= last["rsi"] <= 68
-
-    if trend_ok and rsi_ok:
-        print("MOMENTUM: VALID (BOLEH CARI ENTRY)")
+    if last["ema50"] > last["ema200"] and 55 <= last["rsi"] <= 68:
+        print("SIGNAL CANDIDATE: LANJUT KE FILTER LAIN")
     else:
         print("NO TRADE: Momentum / Trend belum valid")
+
+    save_history(df)
