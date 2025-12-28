@@ -15,13 +15,12 @@ PAIRS = {
     "XRP/IDR": "xrpidr",
     "AVAX/IDR": "avaxidr",
     "DOGE/IDR": "dogeidr",
-    "ADA/IDR": "adaidr",
-    "LINK/IDR": "linkidr"
+    "ADA/IDR": "adaidr"
 }
 
-def send_telegram(msg):
+def send_telegram(text):
     url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
-    requests.post(url, data={"chat_id": CHAT_ID, "text": msg})
+    requests.post(url, data={"chat_id": CHAT_ID, "text": text})
 
 def get_trades(symbol):
     return requests.get(f"https://indodax.com/api/trades/{symbol}").json()
@@ -66,6 +65,21 @@ def update_stats(pair, win):
         df.at[idx,"loss"] += 1
     df.to_csv(f, index=False)
 
+def send_stats():
+    if not os.path.exists("stats.csv"):
+        return
+    df = pd.read_csv("stats.csv")
+    if df.empty:
+        return
+    msg = "📊 STATISTIK SIGNAL (MINGGUAN)\n\n"
+    for _, r in df.iterrows():
+        total = r["win"] + r["loss"]
+        if total == 0:
+            continue
+        wr = r["win"] / total * 100
+        msg += f"{r['pair']}\nWin : {int(r['win'])}\nLoss: {int(r['loss'])}\nWinrate: {wr:.2f}%\n\n"
+    send_telegram(msg)
+
 if __name__ == "__main__":
     for pair, symbol in PAIRS.items():
         hist = load_csv(f"data_{symbol}.csv")
@@ -81,9 +95,7 @@ if __name__ == "__main__":
         df["ema200"] = df["close"].ewm(span=200).mean()
         df["rsi"] = RSIIndicator(df["close"],14).rsi()
         df["vol_ma20"] = df["volume"].rolling(20).mean()
-
-        atr = AverageTrueRange(df["high"], df["low"], df["close"], 14).average_true_range()
-        df["atr"] = atr
+        df["atr"] = AverageTrueRange(df["high"], df["low"], df["close"], 14).average_true_range()
 
         last = df.iloc[-1]
 
@@ -97,26 +109,24 @@ if __name__ == "__main__":
             continue
 
         trend_file = f"trend_{symbol}.txt"
-        current_trend = trend_state(df)
+        cur_trend = trend_state(df)
         prev_trend = open(trend_file).read() if os.path.exists(trend_file) else ""
-
-        if current_trend == prev_trend:
+        if cur_trend == prev_trend:
             save_csv(f"data_{symbol}.csv", df)
             continue
 
         entry = last["close"]
         sl = entry - max(last["atr"] * 1.5, entry * 0.01)
         risk = entry - sl
-
-        tp1 = entry + risk
-        tp2 = entry + risk * 2
-        tp3 = entry + risk * 3
         tp4 = entry + risk * 4
-
         rr = (tp4 - entry) / risk
         if rr < 4:
             save_csv(f"data_{symbol}.csv", df)
             continue
+
+        tp1 = entry + risk
+        tp2 = entry + risk * 2
+        tp3 = entry + risk * 3
 
         msg = (
             f"📈 SIGNAL BUY\n"
@@ -133,5 +143,7 @@ if __name__ == "__main__":
         )
 
         send_telegram(msg)
-        open(trend_file,"w").write(current_trend)
+        open(trend_file,"w").write(cur_trend)
         save_csv(f"data_{symbol}.csv", df)
+
+    send_stats()
