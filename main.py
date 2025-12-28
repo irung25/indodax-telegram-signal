@@ -3,11 +3,17 @@ import pandas as pd
 from ta.momentum import RSIIndicator
 import os
 
+BOT_TOKEN = os.getenv("BOT_TOKEN")
+CHAT_ID = os.getenv("CHAT_ID")
 DATA_FILE = "data.csv"
 
+def send_telegram(message):
+    url = f"https://api.telegram.org/bot{BOT_TOKEN}/sendMessage"
+    payload = {"chat_id": CHAT_ID, "text": message}
+    requests.post(url, data=payload)
+
 def get_trades(pair):
-    url = f"https://indodax.com/api/trades/{pair}"
-    return requests.get(url).json()
+    return requests.get(f"https://indodax.com/api/trades/{pair}").json()
 
 def build_candles(trades, timeframe="4h"):
     df = pd.DataFrame(trades)
@@ -33,29 +39,28 @@ def save_history(df):
 def market_structure_ok(df):
     if len(df) < 3:
         return False
-    last = df.iloc[-1]
-    prev = df.iloc[-2]
-    return last["high"] > prev["high"] and last["low"] > prev["low"]
+    a = df.iloc[-1]
+    b = df.iloc[-2]
+    return a["high"] > b["high"] and a["low"] > b["low"]
 
 if __name__ == "__main__":
-    pair = "btcidr"
+    pair = "BTC/IDR"
+    symbol = "btcidr"
 
     history = load_history()
-    trades = get_trades(pair)
-    new_candles = build_candles(trades)
+    trades = get_trades(symbol)
+    new = build_candles(trades)
 
-    df = pd.concat([history, new_candles])
-    df = df.drop_duplicates(subset=["date"])
-    df = df.sort_values("date")
+    df = pd.concat([history, new]).drop_duplicates(subset=["date"]).sort_values("date")
 
-    if len(df) < 20:
+    if len(df) < 50:
         save_history(df)
-        print("NO TRADE: Data candle belum cukup")
+        send_telegram(f"🚫 NO TRADE\nPair: {pair}\nAlasan: Data candle belum cukup")
         exit()
 
     df["ema50"] = df["close"].ewm(span=50).mean()
     df["ema200"] = df["close"].ewm(span=200).mean()
-    df["rsi"] = RSIIndicator(df["close"], window=14).rsi()
+    df["rsi"] = RSIIndicator(df["close"], 14).rsi()
     df["vol_ma20"] = df["volume"].rolling(20).mean()
 
     last = df.iloc[-1]
@@ -65,15 +70,33 @@ if __name__ == "__main__":
     volume_ok = last["volume"] > last["vol_ma20"]
     structure_ok = market_structure_ok(df)
 
-    print("EMA50 :", last["ema50"])
-    print("EMA200:", last["ema200"])
-    print("RSI14 :", last["rsi"])
-    print("VOLUME OK:", volume_ok)
-    print("STRUCTURE OK:", structure_ok)
+    if not (trend_ok and rsi_ok and volume_ok and structure_ok):
+        send_telegram(
+            f"🚫 NO TRADE\nPair: {pair}\nAlasan: Trend / RSI / Volume / Struktur belum valid"
+        )
+        save_history(df)
+        exit()
 
-    if trend_ok and rsi_ok and volume_ok and structure_ok:
-        print("SIGNAL BUY CANDIDATE (SEMUA FILTER LOLOS)")
-    else:
-        print("NO TRADE: Filter belum lengkap")
+    entry = last["close"]
+    risk = entry * 0.01
+    sl = entry - risk
+    tp1 = entry + risk
+    tp2 = entry + risk * 2
+    tp3 = entry + risk * 3
+    tp4 = entry + risk * 4
 
+    msg = (
+        f"📈 SIGNAL BUY\n"
+        f"Pair: {pair}\n"
+        f"Entry: {entry:,.0f}\n"
+        f"Stop Loss: {sl:,.0f}\n"
+        f"TP1: {tp1:,.0f}\n"
+        f"TP2: {tp2:,.0f}\n"
+        f"TP3: {tp3:,.0f}\n"
+        f"TP4: {tp4:,.0f}\n"
+        f"Timeframe: 4H\n"
+        f"Confidence: High"
+    )
+
+    send_telegram(msg)
     save_history(df)
