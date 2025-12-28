@@ -1,8 +1,6 @@
 name: Crypto Signal Bot
 
 on:
-  schedule:
-    - cron: "*/15 * * * *"   # jalan tiap 15 menit
   workflow_dispatch:
 
 jobs:
@@ -10,16 +8,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Ambil kode dari repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
-      - name: Install library
-        run: pip install -r requirements.txt
+      - run: pip install -r requirements.txt
 
-      - name: Jalankan bot
-        run: python main.py
+      - run: python main.py
