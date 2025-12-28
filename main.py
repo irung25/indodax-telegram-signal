@@ -1,14 +1,15 @@
 import requests
+import pandas as pd
 
-def get_ticker(pair):
-    url = f"https://indodax.com/api/ticker/{pair}"
+def get_candles(pair, timeframe):
+    url = f"https://indodax.com/api/chart/{pair}/{timeframe}"
     response = requests.get(url)
     data = response.json()
-    return data["ticker"]["last"]
+
+    df = pd.DataFrame(data)
+    df["timestamp"] = pd.to_datetime(df["timestamp"], unit="s")
+    return df
 
 if __name__ == "__main__":
-    pairs = ["btcidr", "ethidr", "bnbidr"]
-
-    for pair in pairs:
-        price = get_ticker(pair)
-        print(f"Harga {pair.upper()} : {price}")
+    df = get_candles("btcidr", "4h")
+    print(df.tail())
