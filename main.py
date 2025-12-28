@@ -6,14 +6,12 @@ def get_candles(pair, timeframe):
     response = requests.get(url)
     raw = response.json()
 
-    df = pd.DataFrame({
-        "timestamp": raw["t"],
-        "open": raw["o"],
-        "high": raw["h"],
-        "low": raw["l"],
-        "close": raw["c"],
-        "volume": raw["v"]
-    })
+    candles = raw["data"]
+
+    df = pd.DataFrame(
+        candles,
+        columns=["timestamp", "open", "high", "low", "close", "volume"]
+    )
 
     df["timestamp"] = pd.to_datetime(df["timestamp"], unit="s")
     return df
