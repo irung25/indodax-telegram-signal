@@ -50,6 +50,18 @@ def save_history(df):
 # =========================
 # MAIN PROGRAM
 # =========================
+def market_structure_ok(df):
+    if len(df) < 3:
+        return False
+
+    last = df.iloc[-1]
+    prev = df.iloc[-2]
+
+    higher_high = last["high"] > prev["high"]
+    higher_low = last["low"] > prev["low"]
+
+    return higher_high and higher_low
+
 if __name__ == "__main__":
     pair = "btcidr"
 
@@ -72,6 +84,9 @@ if __name__ == "__main__":
     df["vol_ma20"] = df["volume"].rolling(20).mean()
 
     last = df.iloc[-1]
+    structure_ok = market_structure_ok(df)
+print("STRUCTURE OK:", structure_ok)
+
 
     trend_ok = last["ema50"] > last["ema200"]
     rsi_ok = 55 <= last["rsi"] <= 68
@@ -82,9 +97,10 @@ if __name__ == "__main__":
     print("RSI14 :", last["rsi"])
     print("VOLUME OK:", volume_ok)
 
-    if trend_ok and rsi_ok and volume_ok:
-        print("SIGNAL CANDIDATE: MOMENTUM + VOLUME VALID")
-    else:
-        print("NO TRADE: Trend / RSI / Volume belum valid")
+    if trend_ok and rsi_ok and volume_ok and structure_ok:
+    print("SIGNAL BUY CANDIDATE (SEMUA FILTER LOLOS)")
+else:
+    print("NO TRADE: Filter belum lengkap")
+
 
     save_history(df)
